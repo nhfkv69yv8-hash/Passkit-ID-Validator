@@ -2,7 +2,7 @@ import os
 import re
 import time
 from typing import Dict, List, Tuple
-
+import jwt  # from PyJWT
 import pandas as pd
 import requests
 import streamlit as st
