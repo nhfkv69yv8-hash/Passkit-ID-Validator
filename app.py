@@ -212,97 +212,15 @@ if submitted:
 
     st.success(f"完成：查詢 {len(names)} 筆，命中 {len(all_rows)} 筆。")
 
-    import streamlit.components.v1 as components
-
-def _copy_js(text: str):
-    safe = (
-        text.replace("\\", "\\\\")
-            .replace("`", "\\`")
-            .replace("$", "\\$")
-    )
-    components.html(
-        f"""
-        <script>
-          (async function() {{
-            try {{
-              await navigator.clipboard.writeText(`{safe}`);
-            }} catch (e) {{
-              console.log(e);
-            }}
-          }})();
-        </script>
-        """,
-        height=0,
-    )
-
-def render_results_table(display_rows: list[dict]):
-    # 表頭
-    h1, h2, h3, h4 = st.columns([2.2, 2.2, 3.4, 1.2])
-    h1.markdown("**搜尋姓名**")
-    h2.markdown("**會員姓名**")
-    h3.markdown("**Passkit ID**")
-    h4.markdown("")
-    st.divider()
-
-    for idx, r in enumerate(display_rows):
-        search_name = r.get("搜尋姓名", "")
-        member_name = r.get("會員姓名", "")
-        pid = r.get("Passkit ID", "")
-
-        row_key = f"copied::{pid}::{idx}"
-        copied = st.session_state.get(row_key, False)
-
-        c1, c2, c3, c4 = st.columns([2.2, 2.2, 3.4, 1.2])
-        c1.write(search_name)
-        c2.write(member_name)
-
-        bg = "#f1f3f5" if copied else "#ffffff"
-        border = "#d0d7de"
-
-        c3.markdown(
-            f"""
-            <div style="
-                background:{bg};
-                border:1px solid {border};
-                padding:10px 12px;
-                border-radius:10px;
-                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-                font-size: 14px;
-                word-break: break-all;
-            ">{pid}</div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        if c4.button("Copy", key=f"btncopy::{pid}::{idx}"):
-            _copy_js(pid)
-            st.session_state[row_key] = True
-            st.toast("已複製 Passkit ID ✅", icon="📋")
-            st.rerun()
-
-# ========= 你的原本 all_rows 結果處理：改成下面這段 =========
     if all_rows:
-        # 轉成你要的三欄
-        display_rows = []
-        for x in all_rows:
-            display_rows.append({
-                "搜尋姓名": x.get("搜尋姓名", ""),
-                "會員姓名": x.get("displayName (person.displayName)", x.get("會員姓名", "")),
-                "Passkit ID": x.get("memberId (member.id)", x.get("Passkit ID", "")),
-            })
+        df = pd.DataFrame(all_rows)
+        # Only show required columns; no cardNumber/expiryDate
+        df = df[["搜尋姓名", "displayName (person.displayName)", "memberId (member.id)"]]
+        st.dataframe(df, use_container_width=True)
 
-    render_results_table(display_rows)
+        csv = df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button("下載 CSV", data=csv, file_name="passkit_member_ids.csv", mime="text/csv")
 
-    # CSV 下載
-    df = pd.DataFrame(display_rows)[["搜尋姓名", "會員姓名", "Passkit ID"]]
-    csv = df.to_csv(index=False).encode("utf-8-sig")
-    st.download_button(
-        "下載 CSV",
-        data=csv,
-        file_name="passkit_member_ids.csv",
-        mime="text/csv",
-    )
-    
     if missing:
         with st.expander(f"未找到名單（{len(missing)}）"):
             st.write("\n".join(missing))
