@@ -212,18 +212,26 @@ if submitted:
 
     st.success(f"完成：查詢 {len(names)} 筆，命中 {len(all_rows)} 筆。")
 
-    if all_rows:
-        # 轉成你要的三欄
-        df = pd.DataFrame(all_rows)
-        display_rows = []
-        for x in all_rows:
-            display_rows.append({
-                "搜尋姓名": x.get("搜尋姓名", ""),
-                "會員姓名": x.get("displayName (person.displayName)", x.get("會員姓名", "")),
-                "Passkit ID": x.get("memberId (member.id)", x.get("Passkit ID", "")),
-            })
+    def render_results_table(rows: list[dict], copied_key: str = "copied_ids"):
+    """
+    rows: [{"搜尋姓名": "...", "會員姓名": "...", "Passkit ID": "..."}]
+    copied_key: session_state 裡用來記錄已複製的 Passkit ID
+    """
 
-        st.dataframe(df, use_container_width=True)
+    if not rows:
+        st.info("尚無結果")
+        return
+
+    # 只保留你要的三欄（避免混入其他欄位）
+    safe_rows = []
+    for r in rows:
+        safe_rows.append({
+            "搜尋姓名": r.get("搜尋姓名", ""),
+            "會員姓名": r.get("會員姓名", ""),
+            "Passkit ID": r.get("Passkit ID", ""),
+        })
+
+    df = pd.DataFrame(safe_rows)
 
         csv = df.to_csv(index=False).encode("utf-8-sig")
         st.download_button("下載 CSV", data=csv, file_name="passkit_member_ids.csv", mime="text/csv")
