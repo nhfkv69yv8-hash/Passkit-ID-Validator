@@ -2,47 +2,45 @@ import streamlit as st
 import pandas as pd
 import requests
 import time
-import jwt  # 請確保 requirements.txt 中有 PyJWT
+import jwt  # 請確保 requirements.txt 中包含 PyJWT
 import os
 
 # 1. 基礎設定
-st.set_page_config(page_title="PassKit REST 批次檢索", page_icon="🔍")
+st.set_page_config(page_title="PassKit REST 檢索工具", page_icon="⚡")
 
-# 修正截圖中的 NameError: 初始化 session_state
+# 初始化 Session State 防止 NameError
 if 'last_summary' not in st.session_state:
     st.session_state.last_summary = None
 
 def get_config(key):
     val = st.secrets.get(key) or os.environ.get(key)
-    # 修正 'int' object has no attribute 'replace' 錯誤
-    if val is not None:
-        return str(val).replace('\\n', '\n')
-    return None
+    # 解決 Port 等整數型態無法執行 replace 的問題
+    return str(val).replace('\\n', '\n') if val else None
 
-# --- 2. 認證 Token 生成 (修正 build_jwt_token 未定義問題) ---
+# --- 2. JWT 認證生成 (修復 build_jwt_token 未定義問題) ---
 def build_jwt_token():
-    key = get_config("PK_API_KEY")
-    secret = get_config("PK_API_SECRET")
+    api.key = get_config("PK_API_KEY")
+    api.secret = get_config("PK_API_SECRET")
     
     if not key or not secret:
-        st.error("❌ 缺少 API Key 或 Secret，請檢查 Secrets 設定。")
+        st.error("❌ 缺少 PK_API_KEY 或 PK_API_SECRET，請檢查 Secrets 設定。")
         return None
         
     payload = {
         "iss": key,
         "iat": int(time.time()),
-        "exp": int(time.time()) + 3600  # 1 小時有效期
+        "exp": int(time.time()) + 3600  # Token 有效期 1 小時
     }
-    # 使用 HS256 算法生成 PassKit 要求的 Token
+    # 根據 PassKit 規範使用 HS256 加密
     return jwt.encode(payload, secret, algorithm="HS256")
 
 # --- 3. REST API 核心搜尋邏輯 ---
-def rest_batch_search(name_list, limit=1000):
+def rest_batch_search(name_list):
     results = []
     missing_names = []
     program_id = get_config("PROGRAM_ID")
     
-    # 官方 REST Prefix
+    # 使用您確認的 REST API Prefix
     url = f"https://api.pub2.passkit.io/members/member/list/{program_id}"
     
     token = build_jwt_token()
@@ -53,13 +51,13 @@ def rest_batch_search(name_list, limit=1000):
         "Content-Type": "application/json"
     }
 
-    # 標準化搜尋名單
+    # 標準化搜尋名單 (限制前 50 筆)
     search_names = [n.strip() for n in name_list if n.strip()][:50]
     progress_bar = st.progress(0)
 
     for idx, name in enumerate(search_names):
         try:
-            # 建立符合 member_pb2.py 規範的過濾 JSON
+            # 構建符合官方 Filter 規範的 JSON Body
             body = {
                 "filters": {
                     "filterGroups": [
@@ -84,12 +82,12 @@ def rest_batch_search(name_list, limit=1000):
                 members = data.get('members', [])
                 if members:
                     for m in members:
-                        # 依照要求排列欄位
+                        # ✅ 符合要求：搜尋姓名、稱謂、系統名、Passkit ID (放最後)
                         results.append({
                             "搜尋姓名": name.upper(),
                             "稱謂 person.salutation": m.get('person', {}).get('salutation', ''),
                             "系統名 person.displayName": m.get('person', {}).get('displayName', ''),
-                            "Passkit ID": m.get('member', {}).get'id', '') # ID 放最後
+                            "Passkit ID": m.get('id', '') 
                         })
                 else:
                     missing_names.append(name)
@@ -105,35 +103,25 @@ def rest_batch_search(name_list, limit=1000):
     return results, missing_names
 
 # --- 4. 網頁介面 ---
-st.title("🔍 批次查詢 PassKit Member ID")
-st.markdown("用 REST filter 一次查，不掃全量。")
+st.title("⚡ PassKit REST 批次查詢 (v4.1)")
+st.info("此版本直接透過 REST API Prefix 進行過濾，解決 SDK 版本相容性問題。")
 
-# 模擬截圖中的環境變數檢查 Expander
-with st.expander("✅ 目前環境變數檢查"):
-    st.write(f"Program ID: `{get_config('PROGRAM_ID')}`")
-    st.write(f"API Key: `{get_config('PK_API_KEY')[:5]}...` (已遮蔽)")
+input_text = st.text_area("請輸入姓名名單 (每行一個)", height=250, placeholder="SUHAN CHAN\nYUCHUN LEE")
 
-input_text = st.text_area("每行一個 full name (displayName)", height=250, placeholder="SUHAN CHAN\nYUCHUN LEE")
-
-col1, col2 = st.columns(2)
-with col1:
-    search_mode = st.selectbox("比對方式", ["eq", "startsWith", "contains"])
-with col2:
-    limit_val = st.number_input("limit (<=1000)", value=1000, max_value=1000)
-
-if st.button("Search", type="primary"):
+if st.button("執行批次搜尋", type="primary"):
     if not input_text.strip():
         st.warning("請輸入內容。")
     else:
         names = input_text.split('\n')
-        with st.spinner("REST API 檢索中..."):
-            matches, missing = rest_batch_search(names, limit=limit_val)
+        with st.spinner("正在呼叫 PassKit REST API..."):
+            matches, missing = rest_batch_search(names)
             
             if matches:
-                st.success(f"✅ 完成：找到 {len(matches)} 筆資料。")
+                st.success(f"✅ 搜尋完成！找到 {len(matches)} 筆相符資料。")
+                # 強制 DataFrame 顯示順序
                 df = pd.DataFrame(matches)[["搜尋姓名", "稱謂 person.salutation", "系統名 person.displayName", "Passkit ID"]]
                 st.dataframe(df, use_container_width=True)
             
             if missing:
-                with st.expander("❌ 未找到名單", expanded=True):
+                with st.expander("❌ 未找到名單 (請確認大小寫與空格完全一致)"):
                     st.write(", ".join(missing))
