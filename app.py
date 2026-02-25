@@ -303,5 +303,6 @@ def render_results_table(display_rows: list[dict]):
         mime="text/csv",
     )
     
-    else:
-    st.warning("沒有找到符合名單的會員。")
+    if missing:
+        with st.expander(f"未找到名單（{len(missing)}）"):
+            st.write("\n".join(missing))
