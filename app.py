@@ -212,18 +212,21 @@ if submitted:
 
     st.success(f"完成：查詢 {len(names)} 筆，命中 {len(all_rows)} 筆。")
 
-    def render_results_table(rows):
+    def render_results_table(rows: list[dict], copied_key: str = "copied_ids"):
         """
-        rows: list of dicts
+        rows: [{"搜尋姓名": "...", "會員姓名": "...", "Passkit ID": "..."}]
+        copied_key: session_state key used to record copied ids
         """
-    # 先放一行 pass 也可以，至少要有縮排內容
-        pass
+    import streamlit as st
+    import pandas as pd
+
+    if copied_key not in st.session_state:
+        st.session_state[copied_key] = set()
 
     if not rows:
         st.info("尚無結果")
         return
 
-    # 只保留你要的三欄（避免混入其他欄位）
     safe_rows = []
     for r in rows:
         safe_rows.append({
@@ -234,9 +237,27 @@ if submitted:
 
     df = pd.DataFrame(safe_rows)
 
-        csv = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("下載 CSV", data=csv, file_name="passkit_member_ids.csv", mime="text/csv")
+    header = st.columns([2.2, 2.2, 2.6, 1.2])
+    header[0].markdown("**搜尋姓名**")
+    header[1].markdown("**會員姓名**")
+    header[2].markdown("**Passkit ID**")
+    header[3].markdown("**Copy**")
 
-    if missing:
-        with st.expander(f"未找到名單（{len(missing)}）"):
-            st.write("\n".join(missing))
+    for i, row in df.iterrows():
+        pid = (row["Passkit ID"] or "").strip()
+        copied = pid in st.session_state[copied_key]
+        bg = "#eeeeee" if copied else "transparent"
+
+        cols = st.columns([2.2, 2.2, 2.6, 1.2])
+        cols[0].markdown(f"<div style='background:{bg}; padding:6px; border-radius:6px;'>{row['搜尋姓名']}</div>", unsafe_allow_html=True)
+        cols[1].markdown(f"<div style='background:{bg}; padding:6px; border-radius:6px;'>{row['會員姓名']}</div>", unsafe_allow_html=True)
+        cols[2].markdown(f"<div style='background:{bg}; padding:6px; border-radius:6px; font-family: monospace;'>{pid}</div>", unsafe_allow_html=True)
+
+        btn_label = "Copied" if copied else "Copy"
+        if cols[3].button(btn_label, key=f"copy_{i}_{pid}"):
+            if pid:
+                st.session_state[copied_key].add(pid)
+                st.toast(f"已標記複製：{pid}")
+                st.rerun()
+            else:
+                st.warning("此列沒有 Passkit ID")
