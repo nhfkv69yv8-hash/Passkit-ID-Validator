@@ -34,6 +34,15 @@ def build_jwt_token():
     # 根據 PassKit 規範使用 HS256 加密
     return jwt.encode(payload, secret, algorithm="HS256")
 
+import requests
+
+    headers = get_auth_header()
+    url = f"{REST_BASE}/members/member/list/{PROGRAM_ID}"
+    resp = requests.post(url, headers=headers, json=payload, timeout=60)
+
+    st.write("HTTP", resp.status_code)
+    st.write(resp.text[:500])
+
 # --- 3. REST API 核心搜尋邏輯 ---
 def rest_batch_search(name_list):
     results = []
