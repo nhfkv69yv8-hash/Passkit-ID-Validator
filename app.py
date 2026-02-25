@@ -89,7 +89,7 @@ def rest_batch_search(name_list, limit=1000):
                             "搜尋姓名": name.upper(),
                             "稱謂 person.salutation": m.get('person', {}).get('salutation', ''),
                             "系統名 person.displayName": m.get('person', {}).get('displayName', ''),
-                            "Passkit ID": m.get('id', '') # ID 放最後
+                            "Passkit ID": m.get('member', {}).get'id', '') # ID 放最後
                         })
                 else:
                     missing_names.append(name)
