@@ -229,7 +229,7 @@ if submitted:
         st.download_button("下載 CSV", data=csv, file_name="passkit_member_ids.csv", mime="text/csv")
 
     # ✅ 未找到名單：每個名字用框線區隔（grid）
-def render_missing_grid(missing: List[str]):
+def render_missing_grid(missing: list[dict]):
     if not missing:
         return
 
