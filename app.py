@@ -229,7 +229,7 @@ if submitted:
         st.download_button("下載 CSV", data=csv, file_name="passkit_member_ids.csv", mime="text/csv")
 
     if not_found:
-    with st.expander(f"❌ 未找到名單（{len(not_found)}）", expanded=False):
+        with st.expander(f"❌ 未找到名單（{len(not_found)}）", expanded=False):
 
         # 一列顯示幾個框（可調）
         cols_per_row = 4
