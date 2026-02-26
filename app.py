@@ -228,17 +228,15 @@ if submitted:
         csv = df.to_csv(index=False).encode("utf-8-sig")
         st.download_button("下載 CSV", data=csv, file_name="passkit_member_ids.csv", mime="text/csv")
 
-    if missing:
-        with st.expander(f"未找到名單（{len(missing)}）"):
-            st.write("\n".join(missing))
+    # ✅ 未找到名單：每個名字用框線區隔（grid）
+    if not_found:
+        with st.expander(f"❌ 未找到名單 ({len(not_found)})", expanded=False):
+            cols_per_row = 4  # 一列幾個框，可調 3/4/5
 
-        # 一列顯示幾個框（可調）
-        cols_per_row = 4
-
-        # 分批渲染成 grid
         for i in range(0, len(not_found), cols_per_row):
             cols = st.columns(cols_per_row)
             chunk = not_found[i:i + cols_per_row]
+
             for j, name in enumerate(chunk):
                 with cols[j]:
                     with st.container(border=True):
